@@ -5,12 +5,12 @@ use v_frame::prelude::Pixel;
 use crate::{
     rgb_xyb::xyb_to_linear_rgb,
     yuv_rgb::{transform_primaries, TransferFunction},
-    Hsl, Rgb, Xyb, Yuv,
+    Hsl, Rgb, Xyb, Yuv, FloatData,
 };
 
 #[derive(Debug, Clone)]
 pub struct LinearRgb {
-    data: Vec<[f32; 3]>,
+    data: FloatData,
     width: usize,
     height: usize,
 }
@@ -24,7 +24,7 @@ impl LinearRgb {
         }
 
         Ok(Self {
-            data,
+            data: FloatData::from_data(&data),
             width,
             height,
         })
@@ -45,7 +45,7 @@ impl LinearRgb {
     #[must_use]
     #[inline(always)]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn into_data(self) -> Vec<[f32; 3]> {
+    pub fn into_data(self) -> FloatData {
         self.data
     }
 
@@ -118,7 +118,7 @@ impl From<Hsl> for LinearRgb {
         let width = hsl.width();
         let height = hsl.height();
         let mut data = hsl.into_data();
-        for pix in &mut data {
+        for pix in data.iter_mut() {
             *pix = hsl_to_lrgb(*pix);
         }
 

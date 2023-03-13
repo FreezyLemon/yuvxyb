@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
 use v_frame::prelude::Pixel;
 
-use crate::{rgb_xyb::linear_rgb_to_xyb, LinearRgb, Rgb, Yuv};
+use crate::{rgb_xyb::linear_rgb_to_xyb, FloatData, LinearRgb, Rgb, Yuv};
 
 #[derive(Debug, Clone)]
 pub struct Xyb {
-    data: Vec<[f32; 3]>,
+    data: FloatData,
     width: usize,
     height: usize,
 }
@@ -19,7 +19,7 @@ impl Xyb {
         }
 
         Ok(Self {
-            data,
+            data: FloatData::from_data(&data),
             width,
             height,
         })
@@ -40,7 +40,7 @@ impl Xyb {
     #[must_use]
     #[inline(always)]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn into_data(self) -> Vec<[f32; 3]> {
+    pub fn into_data(self) -> FloatData {
         self.data
     }
 

@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 
-use crate::LinearRgb;
+use crate::{FloatData, LinearRgb};
 
 /// HSL Color Space: Hue, Saturation, Lightness.
 ///
@@ -18,7 +18,7 @@ use crate::LinearRgb;
 pub struct Hsl {
     /// H is a value between 0 and 360 (degrees).
     /// S and L are values betwen 0.0 and 1.0.
-    data: Vec<[f32; 3]>,
+    data: FloatData,
     width: usize,
     height: usize,
 }
@@ -32,7 +32,7 @@ impl Hsl {
         }
 
         Ok(Self {
-            data,
+            data: FloatData::from_data(&data),
             width,
             height,
         })
@@ -53,7 +53,7 @@ impl Hsl {
     #[must_use]
     #[inline(always)]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn into_data(self) -> Vec<[f32; 3]> {
+    pub fn into_data(self) -> FloatData {
         self.data
     }
 
@@ -75,7 +75,7 @@ impl From<LinearRgb> for Hsl {
         let width = lrgb.width();
         let height = lrgb.height();
         let mut data = lrgb.into_data();
-        for pix in &mut data {
+        for pix in data.iter_mut() {
             *pix = lrgb_to_hsl(*pix);
         }
 

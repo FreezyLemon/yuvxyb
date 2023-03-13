@@ -3,15 +3,15 @@ use av_data::pixel::TransferCharacteristic;
 use debug_unreachable::debug_unreachable;
 use std::slice::from_raw_parts_mut;
 
-use crate::fastmath::powf;
+use crate::{fastmath::powf, FloatData};
 
 pub trait TransferFunction {
-    fn to_linear(&self, input: Vec<[f32; 3]>) -> Result<Vec<[f32; 3]>>;
-    fn to_gamma(&self, input: Vec<[f32; 3]>) -> Result<Vec<[f32; 3]>>;
+    fn to_linear(&self, input: FloatData) -> Result<FloatData>;
+    fn to_gamma(&self, input: FloatData) -> Result<FloatData>;
 }
 
 impl TransferFunction for TransferCharacteristic {
-    fn to_linear(&self, input: Vec<[f32; 3]>) -> Result<Vec<[f32; 3]>> {
+    fn to_linear(&self, input: FloatData) -> Result<FloatData> {
         Ok(match *self {
             Self::Logarithmic100 => image_log100_inverse_oetf(input),
             Self::Logarithmic316 => image_log316_inverse_oetf(input),
@@ -35,7 +35,7 @@ impl TransferFunction for TransferCharacteristic {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn to_gamma(&self, input: Vec<[f32; 3]>) -> Result<Vec<[f32; 3]>> {
+    fn to_gamma(&self, input: FloatData) -> Result<FloatData> {
         Ok(match *self {
             Self::Logarithmic100 => image_log100_oetf(input),
             Self::Logarithmic316 => image_log316_oetf(input),
@@ -60,16 +60,16 @@ impl TransferFunction for TransferCharacteristic {
 }
 
 macro_rules! image_transfer_fn {
-    ($name:ident) => {
+    ($conv_fn:ident) => {
         paste::item! {
-            fn [<image_ $name>](mut input: Vec<[f32; 3]>) -> Vec<[f32; 3]> {
+            fn [<image_ $conv_fn>](mut input: FloatData) -> FloatData {
                 // SAFETY: Referencing preallocated memory (input)
                 let input_flat = unsafe {
                     from_raw_parts_mut(input.as_mut_ptr().cast::<f32>(), input.len() * 3)
                 };
 
                 for val in input_flat {
-                    *val = $name(*val);
+                    *val = $conv_fn(*val);
                 }
 
                 input

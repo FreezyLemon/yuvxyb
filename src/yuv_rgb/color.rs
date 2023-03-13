@@ -4,7 +4,7 @@ use debug_unreachable::debug_unreachable;
 use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
-use crate::{Pixel, Yuv, YuvConfig};
+use crate::{Pixel, Yuv, YuvConfig, FloatData};
 
 pub fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix3<f32>> {
     Ok(get_rgb_to_yuv_matrix(config)?
@@ -183,11 +183,11 @@ fn xy_to_xyz(x: f32, y: f32) -> [f32; 3] {
 
 /// Converts 8..=16-bit YUV data to 32-bit floating point gamma-corrected RGB
 /// in a range of 0.0..=1.0;
-pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>> {
+pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<FloatData> {
     let transform = get_yuv_to_rgb_matrix(input.config())?;
     let mut data = ycbcr_to_ypbpr(input);
 
-    for pix in &mut data {
+    for pix in data.iter_mut() {
         let pix_matrix = Matrix3x1::from_column_slice(pix);
         let res = transform * pix_matrix;
         pix[0] = res[0];
@@ -222,10 +222,10 @@ pub fn rgb_to_yuv<T: Pixel>(
 }
 
 pub fn transform_primaries(
-    mut input: Vec<[f32; 3]>,
+    mut input: FloatData,
     in_primaries: ColorPrimaries,
     out_primaries: ColorPrimaries,
-) -> Result<Vec<[f32; 3]>> {
+) -> Result<FloatData> {
     if in_primaries == out_primaries {
         return Ok(input);
     }
@@ -234,7 +234,7 @@ pub fn transform_primaries(
         * white_point_adaptation_matrix(in_primaries, out_primaries)
         * gamut_rgb_to_xyz_matrix(in_primaries)?;
 
-    for pix in &mut input {
+    for pix in input.iter_mut() {
         let pix_matrix = Matrix3x1::from_column_slice(pix);
         let res = transform * pix_matrix;
         pix[0] = res[0];

@@ -4,12 +4,12 @@ use v_frame::prelude::Pixel;
 
 use crate::{
     yuv_rgb::{transform_primaries, yuv_to_rgb, TransferFunction},
-    LinearRgb, Xyb, Yuv,
+    LinearRgb, Xyb, Yuv, FloatData,
 };
 
 #[derive(Debug, Clone)]
 pub struct Rgb {
-    data: Vec<[f32; 3]>,
+    data: FloatData,
     width: usize,
     height: usize,
     transfer: TransferCharacteristic,
@@ -44,7 +44,7 @@ impl Rgb {
         }
 
         Ok(Self {
-            data,
+            data: FloatData::from_data(&data),
             width,
             height,
             transfer,
@@ -67,7 +67,7 @@ impl Rgb {
     #[must_use]
     #[inline(always)]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn into_data(self) -> Vec<[f32; 3]> {
+    pub fn into_data(self) -> FloatData {
         self.data
     }
 

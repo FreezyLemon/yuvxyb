@@ -15,9 +15,9 @@ use v_frame::{frame::Frame, plane::Plane};
 
 pub use self::color::{rgb_to_yuv, transform_primaries, yuv_to_rgb};
 pub use self::transfer::TransferFunction;
-use crate::{CastFromPrimitive, Pixel, Yuv, YuvConfig};
+use crate::{CastFromPrimitive, FloatData, Pixel, Yuv, YuvConfig};
 
-fn ycbcr_to_ypbpr<T: Pixel>(input: &Yuv<T>) -> Vec<[f32; 3]> {
+fn ycbcr_to_ypbpr<T: Pixel>(input: &Yuv<T>) -> FloatData {
     let w = input.width();
     let h = input.height();
     let ss_x = input.config().subsampling_x;
@@ -35,7 +35,7 @@ fn ycbcr_to_ypbpr<T: Pixel>(input: &Yuv<T>) -> Vec<[f32; 3]> {
     let y_origin = data[0].data_origin();
     let u_origin = data[1].data_origin();
     let v_origin = data[2].data_origin();
-    let mut output = vec![[0.0, 0.0, 0.0]; w * h];
+    let mut output = FloatData::new(3 * w * h);
     for y in 0..h {
         for x in 0..w {
             let output_pos = y * w + x;
@@ -239,7 +239,7 @@ mod tests {
 
     /// Converts 8..=16-bit YUV data to 32-bit floating point Linear RGB
     /// in a range of 0.0..=1.0;
-    fn yuv_to_linear_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>> {
+    fn yuv_to_linear_rgb<T: Pixel>(input: &Yuv<T>) -> Result<FloatData> {
         let rgb = yuv_to_rgb(input)?;
         let config = input.config();
         let data = config.transfer_characteristics.to_linear(rgb)?;
@@ -252,7 +252,7 @@ mod tests {
     /// # Errors
     /// - If the `YuvConfig` would produce an invalid image
     fn linear_rgb_to_yuv<T: Pixel>(
-        input: Vec<[f32; 3]>,
+        input: FloatData,
         width: usize,
         height: usize,
         config: YuvConfig,

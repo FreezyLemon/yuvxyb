@@ -40,7 +40,9 @@ mod linear_rgb;
 mod rgb;
 mod xyb;
 mod yuv;
+mod float_data;
 
+pub(crate) use crate::float_data::FloatData;
 pub use crate::hsl::Hsl;
 pub use crate::linear_rgb::LinearRgb;
 pub use crate::rgb::Rgb;

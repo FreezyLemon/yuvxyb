@@ -1,6 +1,6 @@
 #![allow(clippy::many_single_char_names)]
 
-use crate::fastmath::cbrtf;
+use crate::{fastmath::cbrtf, FloatData};
 
 const K_M02: f32 = 0.078f32;
 const K_M00: f32 = 0.30f32;
@@ -39,13 +39,13 @@ const NEG_OPSIN_ABSORBANCE_BIAS: [f32; 3] = [-K_B0, -K_B1, -K_B2];
 /// that the input is Linear RGB. If you pass it gamma-encoded RGB, the results
 /// will be incorrect.
 #[must_use]
-pub fn linear_rgb_to_xyb(mut input: Vec<[f32; 3]>) -> Vec<[f32; 3]> {
+pub fn linear_rgb_to_xyb(mut input: FloatData) -> FloatData {
     let mut absorbance_bias = [0.0f32; 3];
     for (out, bias) in absorbance_bias.iter_mut().zip(OPSIN_ABSORBANCE_BIAS.iter()) {
         *out = -cbrtf(*bias);
     }
 
-    for pix in &mut input {
+    for pix in input.iter_mut() {
         let mut mixed = opsin_absorbance(pix);
         for (mixed, absorb) in mixed.iter_mut().zip(absorbance_bias.iter()) {
             if *mixed < 0.0 {
@@ -63,13 +63,13 @@ pub fn linear_rgb_to_xyb(mut input: Vec<[f32; 3]>) -> Vec<[f32; 3]> {
 /// Converts 32-bit floating point XYB to Linear RGB. This does not perform
 /// gamma encoding on the resulting RGB.
 #[must_use]
-pub fn xyb_to_linear_rgb(mut input: Vec<[f32; 3]>) -> Vec<[f32; 3]> {
+pub fn xyb_to_linear_rgb(mut input: FloatData) -> FloatData {
     let mut biases_cbrt = NEG_OPSIN_ABSORBANCE_BIAS;
     for bias in &mut biases_cbrt {
         *bias = cbrtf(*bias);
     }
 
-    for pix in &mut input {
+    for pix in input.iter_mut() {
         // Color space: XYB -> RGB
         let mut gamma_rgb = [pix[1] + pix[0], pix[1] - pix[0], pix[2]];
         for ((rgb, bias_cbrt), neg_bias) in gamma_rgb
