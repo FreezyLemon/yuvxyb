@@ -79,17 +79,15 @@ fn get_yuv_constants_from_primaries(
     let r_xyz = RowVector::from_array(xy_to_xyz(primaries_r));
     let g_xyz = RowVector::from_array(xy_to_xyz(primaries_g));
     let b_xyz = RowVector::from_array(xy_to_xyz(primaries_b));
-    let white_xyz = RowVector::from_array(get_white_point(primaries)).as_nalgebra();
+    let white_xyz = RowVector::from_array(get_white_point(primaries));
 
-    let x_rgb = RowVector::new(r_xyz.x(), g_xyz.x(), b_xyz.x()).as_nalgebra();
+    let x_rgb = RowVector::new(r_xyz.x(), g_xyz.x(), b_xyz.x());
     let y_rgb = RowVector::new(r_xyz.y(), g_xyz.y(), b_xyz.y());
     let z_rgb = RowVector::new(r_xyz.z(), g_xyz.z(), b_xyz.z());
 
-    
-
-    let denom = x_rgb.dot(&y_rgb.cross(&z_rgb).as_nalgebra());
-    let kr = white_xyz.dot(&g_xyz.cross(&b_xyz).as_nalgebra()) / denom;
-    let kb = white_xyz.dot(&r_xyz.cross(&g_xyz).as_nalgebra()) / denom;
+    let denom = x_rgb.dot(&y_rgb.cross(&z_rgb));
+    let kr = white_xyz.dot(&g_xyz.cross(&b_xyz)) / denom;
+    let kb = white_xyz.dot(&r_xyz.cross(&g_xyz)) / denom;
 
     Ok((kr, kb))
 }
