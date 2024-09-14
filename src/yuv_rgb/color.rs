@@ -5,11 +5,14 @@ use super::matrix::{ColVector, Matrix, RowVector};
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
-fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
-    get_rgb_to_yuv_matrix(config).map(Matrix::invert)
+const fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
+    match get_rgb_to_yuv_matrix(config) {
+        Ok(m) => Ok(m.invert()),
+        Err(e) => Err(e),
+    }
 }
 
-fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
+const fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
     match config.matrix_coefficients {
         MatrixCoefficients::Identity
         | MatrixCoefficients::BT2020ConstantLuminance
@@ -31,7 +34,7 @@ fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
     }
 }
 
-fn ncl_rgb_to_yuv_matrix_from_primaries(
+const fn ncl_rgb_to_yuv_matrix_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<Matrix, ConversionError> {
     match primaries {
@@ -39,14 +42,14 @@ fn ncl_rgb_to_yuv_matrix_from_primaries(
         ColorPrimaries::BT2020 => {
             ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT2020NonConstantLuminance)
         }
-        _ => {
-            let (kr, kb) = get_yuv_constants_from_primaries(primaries)?;
-            Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb))
-        }
+        p => match get_yuv_constants_from_primaries(p) {
+            Ok((kr, kb)) => Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb)),
+            Err(e) => Err(e),
+        },
     }
 }
 
-fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix, ConversionError> {
+const fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix, ConversionError> {
     Ok(match matrix {
         MatrixCoefficients::YCgCo => Matrix::new(
             RowVector::new(0.25, 0.5, 0.25),
@@ -59,18 +62,23 @@ fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix, Conversio
             RowVector::new(99.0, 309.0, 3688.0),
         )
         .scalar_div(4096.0),
-        _ => {
-            let (kr, kb) = get_yuv_constants(matrix)?;
-            ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb)
+        m => {
+            match get_yuv_constants(m) {
+                Ok((kr, kb)) => ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb),
+                Err(e) => return Err(e),
+            }
         }
     })
 }
 
-fn get_yuv_constants_from_primaries(
+const fn get_yuv_constants_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<(f32, f32), ConversionError> {
     // ITU-T H.265 Annex E, Eq (E-22) to (E-27).
-    let [primaries_r, primaries_g, primaries_b] = get_primaries_xy(primaries)?;
+    let [primaries_r, primaries_g, primaries_b] = match get_primaries_xy(primaries) {
+        Ok(p) => p,
+        Err(e) => return Err(e),
+    };
 
     let r_xyz = RowVector::from_array(xy_to_xyz(primaries_r));
     let g_xyz = RowVector::from_array(xy_to_xyz(primaries_g));
@@ -110,15 +118,15 @@ const fn get_yuv_constants(matrix: MatrixCoefficients) -> Result<(f32, f32), Con
     })
 }
 
-fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix {
+const fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix {
     let kg = 1.0 - kr - kb;
-    let uscale = 1.0 / 2.0f32.mul_add(-kb, 2.0);
-    let vscale = 1.0 / 2.0f32.mul_add(-kr, 2.0);
+    let uscale = -2.0 * kb + 2.0;
+    let vscale = -2.0 * kr + 2.0;
 
     Matrix::new(
         RowVector::new(kr, kg, kb),
-        RowVector::new(-kr, -kg, 1.0 - kb).scalar_mul(uscale),
-        RowVector::new(1.0 - kr, -kg, -kb).scalar_mul(vscale),
+        RowVector::new(-kr, -kg, 1.0 - kb).scalar_div(uscale),
+        RowVector::new(1.0 - kr, -kg, -kb).scalar_div(vscale),
     )
 }
 

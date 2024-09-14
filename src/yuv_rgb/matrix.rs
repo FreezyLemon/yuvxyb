@@ -33,10 +33,6 @@ impl RowVector {
         self.0 * other.0 + self.1 * other.1 + self.2 * other.2
     }
 
-    pub const fn scalar_mul(self, x: f32) -> Self {
-        Self(self.0 * x, self.1 * x, self.2 * x)
-    }
-
     pub const fn scalar_div(self, x: f32) -> Self {
         Self(self.0 / x, self.1 / x, self.2 / x)
     }
