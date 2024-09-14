@@ -8,6 +8,7 @@
 #![allow(clippy::doc_markdown)]
 
 mod color;
+mod matrix;
 mod transfer;
 
 use num_traits::clamp;

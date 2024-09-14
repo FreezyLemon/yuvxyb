@@ -1,6 +1,8 @@
 use av_data::pixel::{ColorPrimaries, MatrixCoefficients};
 use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
+use super::matrix::{Matrix, RowVector};
+
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
@@ -42,7 +44,7 @@ fn ncl_rgb_to_yuv_matrix_from_primaries(
         }
         _ => {
             let (kr, kb) = get_yuv_constants_from_primaries(primaries)?;
-            Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb))
+            Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb).as_nalgebra())
         }
     }
 }
@@ -65,7 +67,7 @@ fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix3<f32>, Con
         ]),
         _ => {
             let (kr, kb) = get_yuv_constants(matrix)?;
-            ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb)
+            ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb).as_nalgebra()
         }
     })
 }
@@ -114,25 +116,16 @@ const fn get_yuv_constants(matrix: MatrixCoefficients) -> Result<(f32, f32), Con
     })
 }
 
-fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix3<f32> {
-    let mut ret = [0.0; 9];
+fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix {
     let kg = 1.0 - kr - kb;
     let uscale = 1.0 / 2.0f32.mul_add(-kb, 2.0);
     let vscale = 1.0 / 2.0f32.mul_add(-kr, 2.0);
 
-    ret[0] = kr;
-    ret[1] = kg;
-    ret[2] = kb;
-
-    ret[3] = -kr * uscale;
-    ret[4] = -kg * uscale;
-    ret[5] = (1.0 - kb) * uscale;
-
-    ret[6] = (1.0 - kr) * vscale;
-    ret[7] = -kg * vscale;
-    ret[8] = -kb * vscale;
-
-    Matrix3::from_row_slice(&ret)
+    Matrix::new(
+        RowVector::new(kr, kg, kb),
+        RowVector::new(-kr, -kg, 1.0 - kb).scalar_mul(uscale),
+        RowVector::new(1.0 - kr, -kg, -kb).scalar_mul(vscale),
+    )
 }
 
 const fn get_primaries_xy(primaries: ColorPrimaries) -> Result<[[f32; 2]; 3], ConversionError> {
