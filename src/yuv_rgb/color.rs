@@ -1,5 +1,5 @@
 use av_data::pixel::{ColorPrimaries, MatrixCoefficients};
-use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
+use nalgebra::{Matrix3, Matrix3x1};
 
 use super::matrix::{Matrix, RowVector};
 
@@ -76,18 +76,20 @@ fn get_yuv_constants_from_primaries(
     // ITU-T H.265 Annex E, Eq (E-22) to (E-27).
     let [primaries_r, primaries_g, primaries_b] = get_primaries_xy(primaries)?;
 
-    let r_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_r));
-    let g_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_g));
-    let b_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_b));
-    let white_xyz = Matrix1x3::from_row_slice(&get_white_point(primaries));
+    let r_xyz = RowVector::from_array(xy_to_xyz(primaries_r));
+    let g_xyz = RowVector::from_array(xy_to_xyz(primaries_g));
+    let b_xyz = RowVector::from_array(xy_to_xyz(primaries_b));
+    let white_xyz = RowVector::from_array(get_white_point(primaries)).as_nalgebra();
 
-    let x_rgb = Matrix1x3::from_row_slice(&[r_xyz[0], g_xyz[0], b_xyz[0]]);
-    let y_rgb = Matrix1x3::from_row_slice(&[r_xyz[1], g_xyz[1], b_xyz[1]]);
-    let z_rgb = Matrix1x3::from_row_slice(&[r_xyz[2], g_xyz[2], b_xyz[2]]);
+    let x_rgb = RowVector::new(r_xyz.x(), g_xyz.x(), b_xyz.x()).as_nalgebra();
+    let y_rgb = RowVector::new(r_xyz.y(), g_xyz.y(), b_xyz.y());
+    let z_rgb = RowVector::new(r_xyz.z(), g_xyz.z(), b_xyz.z());
 
-    let denom = x_rgb.dot(&y_rgb.cross(&z_rgb));
-    let kr = white_xyz.dot(&g_xyz.cross(&b_xyz)) / denom;
-    let kb = white_xyz.dot(&r_xyz.cross(&g_xyz)) / denom;
+    
+
+    let denom = x_rgb.dot(&y_rgb.cross(&z_rgb).as_nalgebra());
+    let kr = white_xyz.dot(&g_xyz.cross(&b_xyz).as_nalgebra()) / denom;
+    let kb = white_xyz.dot(&r_xyz.cross(&g_xyz).as_nalgebra()) / denom;
 
     Ok((kr, kb))
 }

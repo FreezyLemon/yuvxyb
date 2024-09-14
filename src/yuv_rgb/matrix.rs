@@ -13,6 +13,21 @@ impl RowVector {
         Self::new(arr[0], arr[1], arr[2])
     }
 
+    pub const fn x(&self) -> f32 { self.0 }
+    pub const fn y(&self) -> f32 { self.1 }
+    pub const fn z(&self) -> f32 { self.2 }
+
+    pub const fn cross(&self, other: &Self) -> Self {
+        let (sx, sy, sz) = (self.0, self.1, self.2);
+        let (ox, oy, oz) = (other.0, other.1, other.2);
+
+        Self::new(
+            sy * oz - sz * oy,
+            sz * ox - sx * oz,
+            sx * oy - sy * ox,
+        )
+    }
+
     pub const fn scalar_mul(&self, x: f32) -> Self {
         Self(self.0 * x, self.1 * x, self.2 * x)
     }
