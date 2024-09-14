@@ -223,12 +223,15 @@ pub fn transform_primaries(
     Ok(input)
 }
 
-fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
-    if primaries == ColorPrimaries::ST428 {
+const fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
+    if matches!(primaries, ColorPrimaries::ST428) {
         return Ok(Matrix::identity());
     }
 
-    let xyz_matrix = get_primaries_xyz(primaries)?;
+    let xyz_matrix = match get_primaries_xyz(primaries) {
+        Ok(m) => m,
+        Err(e) => return Err(e),
+    };
     let white_xyz = ColVector::from_array(get_white_point(primaries));
 
     let s = (xyz_matrix.invert() * white_xyz).transpose();
@@ -239,18 +242,24 @@ fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix, Conversi
     ))
 }
 
-fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
-    if primaries == ColorPrimaries::ST428 {
+const fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
+    if matches!(primaries, ColorPrimaries::ST428) {
         return Ok(Matrix::identity());
     }
 
-    gamut_rgb_to_xyz_matrix(primaries).map(Matrix::invert)
+    match gamut_rgb_to_xyz_matrix(primaries) {
+        Ok(m) => Ok(m.invert()),
+        Err(e) => Err(e),
+    }
 }
 
-fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
+const fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
     // Columns: R G B
     // Rows: X Y Z
-    let [primaries_r, primaries_g, primaries_b] = get_primaries_xy(primaries)?;
+    let [primaries_r, primaries_g, primaries_b] = match get_primaries_xy(primaries) {
+        Ok(p) => p,
+        Err(e) => return Err(e),
+    };
 
     let m = Matrix::new(
         RowVector::from_array(xy_to_xyz(primaries_r)),
