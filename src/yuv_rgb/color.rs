@@ -5,20 +5,26 @@ use super::matrix::{ColVector, Matrix, RowVector};
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
-const fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
-    match get_rgb_to_yuv_matrix(config) {
+const fn get_yuv_to_rgb_matrix(
+    matrix: MatrixCoefficients,
+    primaries: ColorPrimaries,
+) -> Result<Matrix, ConversionError> {
+    match get_rgb_to_yuv_matrix(matrix, primaries) {
         Ok(m) => Ok(m.invert()),
         Err(e) => Err(e),
     }
 }
 
-const fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
-    match config.matrix_coefficients {
+const fn get_rgb_to_yuv_matrix(
+    matrix: MatrixCoefficients,
+    primaries: ColorPrimaries,
+) -> Result<Matrix, ConversionError> {
+    match matrix {
         MatrixCoefficients::Identity
         | MatrixCoefficients::BT2020ConstantLuminance
         | MatrixCoefficients::ChromaticityDerivedConstantLuminance
         | MatrixCoefficients::ST2085
-        | MatrixCoefficients::ICtCp => ncl_rgb_to_yuv_matrix_from_primaries(config.color_primaries),
+        | MatrixCoefficients::ICtCp => ncl_rgb_to_yuv_matrix_from_primaries(primaries),
         MatrixCoefficients::BT709
         | MatrixCoefficients::BT470M
         | MatrixCoefficients::BT470BG
@@ -26,9 +32,7 @@ const fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionEr
         | MatrixCoefficients::ST240M
         | MatrixCoefficients::YCgCo
         | MatrixCoefficients::ChromaticityDerivedNonConstantLuminance
-        | MatrixCoefficients::BT2020NonConstantLuminance => {
-            ncl_rgb_to_yuv_matrix(config.matrix_coefficients)
-        }
+        | MatrixCoefficients::BT2020NonConstantLuminance => ncl_rgb_to_yuv_matrix(matrix),
         MatrixCoefficients::Reserved => Err(ConversionError::UnsupportedMatrixCoefficients),
         MatrixCoefficients::Unspecified => Err(ConversionError::UnspecifiedMatrixCoefficients),
     }
@@ -173,7 +177,10 @@ const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
 /// Converts 8..=16-bit YUV data to 32-bit floating point gamma-corrected RGB
 /// in a range of 0.0..=1.0;
 pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionError> {
-    let transform = get_yuv_to_rgb_matrix(input.config())?;
+    let transform = get_yuv_to_rgb_matrix(
+        input.config().matrix_coefficients,
+        input.config().color_primaries,
+    )?;
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {
@@ -194,7 +201,7 @@ pub fn rgb_to_yuv<T: Pixel>(
     height: usize,
     config: YuvConfig,
 ) -> Result<Yuv<T>, ConversionError> {
-    let transform = get_rgb_to_yuv_matrix(config)?;
+    let transform = get_rgb_to_yuv_matrix(config.matrix_coefficients, config.color_primaries)?;
     let yuv: Vec<_> = input.iter().map(|pix| transform.mul_arr(*pix)).collect();
     Ok(ypbpr_to_ycbcr(&yuv, width, height, config))
 }
