@@ -1,5 +1,4 @@
 use av_data::pixel::{ColorPrimaries, MatrixCoefficients};
-use nalgebra::Matrix3x1;
 
 use super::matrix::{ColVector, Matrix, RowVector};
 
@@ -168,15 +167,11 @@ const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
 /// Converts 8..=16-bit YUV data to 32-bit floating point gamma-corrected RGB
 /// in a range of 0.0..=1.0;
 pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionError> {
-    let transform = get_yuv_to_rgb_matrix(input.config())?.as_nalgebra();
+    let transform = get_yuv_to_rgb_matrix(input.config())?;
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {
-        let pix_matrix = Matrix3x1::from_column_slice(pix);
-        let res = transform * pix_matrix;
-        pix[0] = res[0];
-        pix[1] = res[1];
-        pix[2] = res[2];
+        *pix = transform * *pix;
     }
 
     Ok(data)
@@ -193,15 +188,8 @@ pub fn rgb_to_yuv<T: Pixel>(
     height: usize,
     config: YuvConfig,
 ) -> Result<Yuv<T>, ConversionError> {
-    let transform = get_rgb_to_yuv_matrix(config)?.as_nalgebra();
-    let yuv = input
-        .iter()
-        .map(|pix| {
-            let pix = Matrix3x1::from_column_slice(pix);
-            let res = transform * pix;
-            [res[0], res[1], res[2]]
-        })
-        .collect::<Vec<_>>();
+    let transform = get_rgb_to_yuv_matrix(config)?;
+    let yuv: Vec<_> = input.iter().map(|pix| transform * *pix).collect();
     Ok(ypbpr_to_ycbcr(&yuv, width, height, config))
 }
 
@@ -218,14 +206,10 @@ pub fn transform_primaries(
         * white_point_adaptation_matrix(in_primaries, out_primaries)
         * gamut_rgb_to_xyz_matrix(in_primaries)?;
 
-    let transform = transform.as_nalgebra();
+    let transform = transform;
 
     for pix in &mut input {
-        let pix_matrix = Matrix3x1::from_column_slice(pix);
-        let res = transform * pix_matrix;
-        pix[0] = res[0];
-        pix[1] = res[1];
-        pix[2] = res[2];
+        *pix = transform * *pix;
     }
 
     Ok(input)
