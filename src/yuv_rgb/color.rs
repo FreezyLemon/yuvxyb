@@ -266,7 +266,7 @@ const fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, Conversi
     Ok(m.transpose())
 }
 
-fn white_point_adaptation_matrix(
+const fn white_point_adaptation_matrix(
     in_primaries: ColorPrimaries,
     out_primaries: ColorPrimaries,
 ) -> Matrix {
@@ -279,7 +279,7 @@ fn white_point_adaptation_matrix(
     let white_in = ColVector::from_array(get_white_point(in_primaries));
     let white_out = ColVector::from_array(get_white_point(out_primaries));
 
-    if white_in == white_out {
+    if white_in.eq(white_out) {
         return Matrix::identity();
     }
 

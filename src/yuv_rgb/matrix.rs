@@ -40,7 +40,7 @@ impl RowVector {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct ColVector(f32, f32, f32);
 
 impl ColVector {
@@ -64,6 +64,10 @@ impl ColVector {
 
     pub const fn transpose(self) -> RowVector {
         RowVector::new(self.0, self.1, self.2)
+    }
+
+    pub const fn eq(self, other: Self) -> bool {
+        self.0 == other.0 && self.1 == other.1 && self.2 == other.2
     }
 }
 
