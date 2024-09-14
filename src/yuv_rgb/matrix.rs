@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 #[derive(Clone, Copy)]
 pub struct RowVector(f32, f32, f32);
 
@@ -149,12 +147,8 @@ impl Matrix {
         .transpose()
         .scalar_div(determinant)
     }
-}
 
-impl Mul<ColVector> for Matrix {
-    type Output = ColVector;
-
-    fn mul(self, rhs: ColVector) -> Self::Output {
+    pub const fn mul_vec(self, rhs: ColVector) -> ColVector {
         let Matrix(r1, r2, r3) = self;
 
         ColVector::new(
@@ -163,12 +157,8 @@ impl Mul<ColVector> for Matrix {
             r3.0 * rhs.0 + r3.1 * rhs.1 + r3.2 * rhs.2,
         )
     }
-}
 
-impl Mul<Matrix> for Matrix {
-    type Output = Matrix;
-
-    fn mul(self, rhs: Matrix) -> Self::Output {
+    pub const fn mul_mat(self, rhs: Matrix) -> Matrix {
         let Matrix(r1, r2, r3) = self;
         let Matrix(o1, o2, o3) = rhs;
 
@@ -190,12 +180,8 @@ impl Mul<Matrix> for Matrix {
             ),
         )
     }
-}
 
-impl Mul<[f32; 3]> for Matrix {
-    type Output = [f32; 3];
-
-    fn mul(self, rhs: [f32; 3]) -> Self::Output {
+    pub const fn mul_arr(self, rhs: [f32; 3]) -> [f32; 3] {
         let Matrix(r1, r2, r3) = self;
 
         [

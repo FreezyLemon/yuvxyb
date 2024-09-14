@@ -62,12 +62,10 @@ const fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix, Con
             RowVector::new(99.0, 309.0, 3688.0),
         )
         .scalar_div(4096.0),
-        m => {
-            match get_yuv_constants(m) {
-                Ok((kr, kb)) => ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb),
-                Err(e) => return Err(e),
-            }
-        }
+        m => match get_yuv_constants(m) {
+            Ok((kr, kb)) => ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb),
+            Err(e) => return Err(e),
+        },
     })
 }
 
@@ -179,7 +177,7 @@ pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionE
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {
-        *pix = transform * *pix;
+        *pix = transform.mul_arr(*pix);
     }
 
     Ok(data)
@@ -197,7 +195,7 @@ pub fn rgb_to_yuv<T: Pixel>(
     config: YuvConfig,
 ) -> Result<Yuv<T>, ConversionError> {
     let transform = get_rgb_to_yuv_matrix(config)?;
-    let yuv: Vec<_> = input.iter().map(|pix| transform * *pix).collect();
+    let yuv: Vec<_> = input.iter().map(|pix| transform.mul_arr(*pix)).collect();
     Ok(ypbpr_to_ycbcr(&yuv, width, height, config))
 }
 
@@ -211,13 +209,13 @@ pub fn transform_primaries(
     }
 
     let transform = gamut_xyz_to_rgb_matrix(out_primaries)?
-        * white_point_adaptation_matrix(in_primaries, out_primaries)
-        * gamut_rgb_to_xyz_matrix(in_primaries)?;
+        .mul_mat(white_point_adaptation_matrix(in_primaries, out_primaries))
+        .mul_mat(gamut_rgb_to_xyz_matrix(in_primaries)?);
 
     let transform = transform;
 
     for pix in &mut input {
-        *pix = transform * *pix;
+        *pix = transform.mul_arr(*pix);
     }
 
     Ok(input)
@@ -234,7 +232,7 @@ const fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix, Co
     };
     let white_xyz = ColVector::from_array(get_white_point(primaries));
 
-    let s = (xyz_matrix.invert() * white_xyz).transpose();
+    let s = xyz_matrix.invert().mul_vec(white_xyz).transpose();
     Ok(Matrix::new(
         xyz_matrix.r1().component_mul(s),
         xyz_matrix.r2().component_mul(s),
@@ -287,8 +285,8 @@ fn white_point_adaptation_matrix(
         return Matrix::identity();
     }
 
-    let rgb_in = bradford * white_in;
-    let rgb_out = bradford * white_out;
+    let rgb_in = bradford.mul_vec(white_in);
+    let rgb_out = bradford.mul_vec(white_out);
 
     let m = Matrix::new(
         RowVector::new(rgb_out.r() / rgb_in.r(), 0.0, 0.0),
@@ -296,5 +294,5 @@ fn white_point_adaptation_matrix(
         RowVector::new(0.0, 0.0, rgb_out.b() / rgb_in.b()),
     );
 
-    bradford.invert() * m * bradford
+    bradford.invert().mul_mat(m).mul_mat(bradford)
 }
