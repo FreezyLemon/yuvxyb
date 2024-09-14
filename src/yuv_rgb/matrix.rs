@@ -1,6 +1,6 @@
 // const matrix stuff
 
-use nalgebra::{Matrix1x3, Matrix3};
+use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
 pub struct RowVector(f32, f32, f32);
 
@@ -45,7 +45,21 @@ impl RowVector {
     }
 }
 
-// pub struct ColVector(f32, f32, f32);
+pub struct ColVector(f32, f32, f32);
+
+impl ColVector {
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
+        Self(x, y, z)
+    }
+
+    pub const fn from_array(arr: [f32; 3]) -> Self {
+        Self::new(arr[0], arr[1], arr[2])
+    }
+
+    pub const fn as_nalgebra(&self) -> Matrix3x1<f32> {
+        Matrix3x1::new(self.0, self.1, self.2)
+    }
+}
 
 pub struct Matrix(RowVector, RowVector, RowVector);
 

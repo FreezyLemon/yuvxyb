@@ -1,7 +1,7 @@
 use av_data::pixel::{ColorPrimaries, MatrixCoefficients};
 use nalgebra::{Matrix3, Matrix3x1};
 
-use super::matrix::{Matrix, RowVector};
+use super::matrix::{ColVector, Matrix, RowVector};
 
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
@@ -238,7 +238,7 @@ fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, Co
     }
 
     let xyz_matrix = get_primaries_xyz(primaries)?.as_nalgebra();
-    let white_xyz = Matrix3x1::from_column_slice(&get_white_point(primaries));
+    let white_xyz = ColVector::from_array(get_white_point(primaries)).as_nalgebra();
 
     let s = (xyz_matrix.try_inverse().expect("has an inverse") * white_xyz).transpose();
     let mut m = [0f32; 9];
