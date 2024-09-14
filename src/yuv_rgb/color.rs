@@ -4,13 +4,13 @@ use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
-pub fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
+fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
     Ok(get_rgb_to_yuv_matrix(config)?
         .try_inverse()
         .expect("Matrix can be inverted"))
 }
 
-pub fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
+fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
     match config.matrix_coefficients {
         MatrixCoefficients::Identity
         | MatrixCoefficients::BT2020ConstantLuminance
@@ -32,7 +32,7 @@ pub fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix3<f32>, Conversi
     }
 }
 
-pub fn ncl_rgb_to_yuv_matrix_from_primaries(
+fn ncl_rgb_to_yuv_matrix_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<Matrix3<f32>, ConversionError> {
     match primaries {
@@ -47,7 +47,7 @@ pub fn ncl_rgb_to_yuv_matrix_from_primaries(
     }
 }
 
-pub fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix3<f32>, ConversionError> {
+fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix3<f32>, ConversionError> {
     Ok(match matrix {
         MatrixCoefficients::YCgCo => {
             Matrix3::from_row_slice(&[0.25, 0.5, 0.25, -0.25, 0.5, -0.25, 0.5, 0.0, -0.5])
@@ -70,7 +70,7 @@ pub fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix3<f32>,
     })
 }
 
-pub fn get_yuv_constants_from_primaries(
+fn get_yuv_constants_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<(f32, f32), ConversionError> {
     // ITU-T H.265 Annex E, Eq (E-22) to (E-27).
@@ -92,7 +92,7 @@ pub fn get_yuv_constants_from_primaries(
     Ok((kr, kb))
 }
 
-pub const fn get_yuv_constants(matrix: MatrixCoefficients) -> Result<(f32, f32), ConversionError> {
+const fn get_yuv_constants(matrix: MatrixCoefficients) -> Result<(f32, f32), ConversionError> {
     Ok(match matrix {
         MatrixCoefficients::Identity => (0.0, 0.0),
         MatrixCoefficients::BT470M => (0.3, 0.11),
@@ -114,7 +114,7 @@ pub const fn get_yuv_constants(matrix: MatrixCoefficients) -> Result<(f32, f32),
     })
 }
 
-pub fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix3<f32> {
+fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix3<f32> {
     let mut ret = [0.0; 9];
     let kg = 1.0 - kr - kb;
     let uscale = 1.0 / 2.0f32.mul_add(-kb, 2.0);
@@ -135,7 +135,7 @@ pub fn ncl_rgb_to_yuv_matrix_from_kr_kb(kr: f32, kb: f32) -> Matrix3<f32> {
     Matrix3::from_row_slice(&ret)
 }
 
-pub const fn get_primaries_xy(primaries: ColorPrimaries) -> Result<[[f32; 2]; 3], ConversionError> {
+const fn get_primaries_xy(primaries: ColorPrimaries) -> Result<[[f32; 2]; 3], ConversionError> {
     Ok(match primaries {
         ColorPrimaries::BT470M => [[0.670, 0.330], [0.210, 0.710], [0.140, 0.080]],
         ColorPrimaries::BT470BG => [[0.640, 0.330], [0.290, 0.600], [0.150, 0.060]],
@@ -157,7 +157,7 @@ pub const fn get_primaries_xy(primaries: ColorPrimaries) -> Result<[[f32; 2]; 3]
     })
 }
 
-pub fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
+fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
     // White points in XY.
     const ILLUMINANT_C: [f32; 2] = [0.31, 0.316];
     const ILLUMINANT_DCI: [f32; 2] = [0.314, 0.351];
