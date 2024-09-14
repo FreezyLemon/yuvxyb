@@ -6,11 +6,8 @@ use super::matrix::{ColVector, Matrix, RowVector};
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
-fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
-    Ok(get_rgb_to_yuv_matrix(config)?
-        .as_nalgebra()
-        .try_inverse()
-        .expect("Matrix can be inverted"))
+fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
+    get_rgb_to_yuv_matrix(config).map(Matrix::invert)
 }
 
 fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
@@ -85,9 +82,9 @@ fn get_yuv_constants_from_primaries(
     let y_rgb = RowVector::new(r_xyz.y(), g_xyz.y(), b_xyz.y());
     let z_rgb = RowVector::new(r_xyz.z(), g_xyz.z(), b_xyz.z());
 
-    let denom = x_rgb.dot(&y_rgb.cross(&z_rgb));
-    let kr = white_xyz.dot(&g_xyz.cross(&b_xyz)) / denom;
-    let kb = white_xyz.dot(&r_xyz.cross(&g_xyz)) / denom;
+    let denom = x_rgb.dot(y_rgb.cross(z_rgb));
+    let kr = white_xyz.dot(g_xyz.cross(b_xyz)) / denom;
+    let kb = white_xyz.dot(r_xyz.cross(g_xyz)) / denom;
 
     Ok((kr, kb))
 }
@@ -171,7 +168,7 @@ const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
 /// Converts 8..=16-bit YUV data to 32-bit floating point gamma-corrected RGB
 /// in a range of 0.0..=1.0;
 pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionError> {
-    let transform = get_yuv_to_rgb_matrix(input.config())?;
+    let transform = get_yuv_to_rgb_matrix(input.config())?.as_nalgebra();
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {

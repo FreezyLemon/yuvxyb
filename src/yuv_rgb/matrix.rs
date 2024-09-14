@@ -2,6 +2,7 @@
 
 use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
+#[derive(Clone, Copy)]
 pub struct RowVector(f32, f32, f32);
 
 impl RowVector {
@@ -13,38 +14,41 @@ impl RowVector {
         Self::new(arr[0], arr[1], arr[2])
     }
 
-    pub const fn x(&self) -> f32 { self.0 }
-    pub const fn y(&self) -> f32 { self.1 }
-    pub const fn z(&self) -> f32 { self.2 }
-
-    pub const fn cross(&self, other: &Self) -> Self {
-        let (sx, sy, sz) = (self.0, self.1, self.2);
-        let (ox, oy, oz) = (other.0, other.1, other.2);
-
-        Self::new(
-            sy * oz - sz * oy,
-            sz * ox - sx * oz,
-            sx * oy - sy * ox,
-        )
+    pub const fn x(self) -> f32 {
+        self.0
+    }
+    pub const fn y(self) -> f32 {
+        self.1
+    }
+    pub const fn z(self) -> f32 {
+        self.2
     }
 
-    pub const fn dot(&self, other: &Self) -> f32 {
+    pub const fn cross(self, other: Self) -> Self {
+        let RowVector(sx, sy, sz) = self;
+        let RowVector(ox, oy, oz) = other;
+
+        Self::new(sy * oz - sz * oy, sz * ox - sx * oz, sx * oy - sy * ox)
+    }
+
+    pub const fn dot(self, other: Self) -> f32 {
         self.0 * other.0 + self.1 * other.1 + self.2 * other.2
     }
 
-    pub const fn scalar_mul(&self, x: f32) -> Self {
+    pub const fn scalar_mul(self, x: f32) -> Self {
         Self(self.0 * x, self.1 * x, self.2 * x)
     }
 
-    pub const fn scalar_div(&self, x: f32) -> Self {
+    pub const fn scalar_div(self, x: f32) -> Self {
         Self(self.0 / x, self.1 / x, self.2 / x)
     }
 
-    pub fn as_nalgebra(&self) -> Matrix1x3<f32> {
+    pub fn as_nalgebra(self) -> Matrix1x3<f32> {
         Matrix1x3::new(self.0, self.1, self.2)
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct ColVector(f32, f32, f32);
 
 impl ColVector {
@@ -56,11 +60,12 @@ impl ColVector {
         Self::new(arr[0], arr[1], arr[2])
     }
 
-    pub const fn as_nalgebra(&self) -> Matrix3x1<f32> {
+    pub const fn as_nalgebra(self) -> Matrix3x1<f32> {
         Matrix3x1::new(self.0, self.1, self.2)
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Matrix(RowVector, RowVector, RowVector);
 
 impl Matrix {
@@ -68,7 +73,7 @@ impl Matrix {
         Self(r1, r2, r3)
     }
 
-    pub const fn scalar_div(&self, x: f32) -> Self {
+    pub const fn scalar_div(self, x: f32) -> Self {
         Self(
             self.0.scalar_div(x),
             self.1.scalar_div(x),
@@ -76,12 +81,12 @@ impl Matrix {
         )
     }
 
-    pub const fn transpose(&self) -> Self {
+    pub const fn transpose(self) -> Self {
         let Matrix(r1, r2, r3) = self;
 
-        let RowVector(s11, s12, s13) = *r1;
-        let RowVector(s21, s22, s23) = *r2;
-        let RowVector(s31, s32, s33) = *r3;
+        let RowVector(s11, s12, s13) = r1;
+        let RowVector(s21, s22, s23) = r2;
+        let RowVector(s31, s32, s33) = r3;
 
         Self::new(
             RowVector::new(s11, s21, s31),
@@ -90,7 +95,40 @@ impl Matrix {
         )
     }
 
-    pub fn as_nalgebra(&self) -> Matrix3<f32> {
+    pub const fn invert(self) -> Self {
+        // Cramer's rule
+        let Matrix(r1, r2, r3) = self;
+
+        let RowVector(s11, s12, s13) = r1;
+        let RowVector(s21, s22, s23) = r2;
+        let RowVector(s31, s32, s33) = r3;
+
+        let minor_11 = s22 * s33 - s32 * s23;
+        let minor_12 = s21 * s33 - s31 * s23;
+        let minor_13 = s21 * s32 - s31 * s22;
+
+        let minor_21 = s12 * s33 - s32 * s13;
+        let minor_22 = s11 * s33 - s31 * s13;
+        let minor_23 = s11 * s32 - s31 * s12;
+
+        let minor_31 = s12 * s23 - s22 * s13;
+        let minor_32 = s11 * s23 - s21 * s13;
+        let minor_33 = s11 * s22 - s21 * s12;
+
+        let determinant = s11 * minor_11 - s12 * minor_12 + s13 * minor_13;
+
+        assert!(determinant != 0.0);
+
+        Self::new(
+            RowVector::new(minor_11, -minor_12, minor_13),
+            RowVector::new(-minor_21, minor_22, -minor_23),
+            RowVector::new(minor_31, -minor_32, minor_33),
+        )
+        .transpose()
+        .scalar_div(determinant)
+    }
+
+    pub fn as_nalgebra(self) -> Matrix3<f32> {
         Matrix3::from_rows(&[
             self.0.as_nalgebra(),
             self.1.as_nalgebra(),
