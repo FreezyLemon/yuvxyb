@@ -212,8 +212,6 @@ pub fn transform_primaries(
         .mul_mat(white_point_adaptation_matrix(in_primaries, out_primaries))
         .mul_mat(gamut_rgb_to_xyz_matrix(in_primaries)?);
 
-    let transform = transform;
-
     for pix in &mut input {
         *pix = transform.mul_arr(*pix);
     }
