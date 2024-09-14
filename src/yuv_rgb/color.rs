@@ -214,9 +214,9 @@ pub fn transform_primaries(
         return Ok(input);
     }
 
-    let transform = gamut_xyz_to_rgb_matrix(out_primaries)?
+    let transform = gamut_xyz_to_rgb_matrix(out_primaries)?.as_nalgebra()
         * white_point_adaptation_matrix(in_primaries, out_primaries)
-        * gamut_rgb_to_xyz_matrix(in_primaries)?;
+        * gamut_rgb_to_xyz_matrix(in_primaries)?.as_nalgebra();
 
     for pix in &mut input {
         let pix_matrix = Matrix3x1::from_column_slice(pix);
@@ -229,31 +229,28 @@ pub fn transform_primaries(
     Ok(input)
 }
 
-fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, ConversionError> {
+fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
     if primaries == ColorPrimaries::ST428 {
-        return Ok(Matrix3::identity());
+        return Ok(Matrix::identity());
     }
 
-    let xyz_matrix = get_primaries_xyz(primaries)?.as_nalgebra();
-    let white_xyz = ColVector::from_array(get_white_point(primaries)).as_nalgebra();
+    let xyz_matrix = get_primaries_xyz(primaries)?;
+    let white_xyz = ColVector::from_array(get_white_point(primaries));
 
-    let s = (xyz_matrix.try_inverse().expect("has an inverse") * white_xyz).transpose();
-    let mut m = [0f32; 9];
-    m[0..3].copy_from_slice((xyz_matrix.row(0).component_mul(&s)).as_slice());
-    m[3..6].copy_from_slice((xyz_matrix.row(1).component_mul(&s)).as_slice());
-    m[6..9].copy_from_slice((xyz_matrix.row(2).component_mul(&s)).as_slice());
-
-    Ok(Matrix3::from_row_slice(&m))
+    let s = (xyz_matrix.invert() * white_xyz).transpose();
+    Ok(Matrix::new(
+        xyz_matrix.r1().component_mul(s),
+        xyz_matrix.r2().component_mul(s),
+        xyz_matrix.r3().component_mul(s),
+    ))
 }
 
-fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, ConversionError> {
+fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
     if primaries == ColorPrimaries::ST428 {
-        return Ok(Matrix3::identity());
+        return Ok(Matrix::identity());
     }
 
-    Ok(gamut_rgb_to_xyz_matrix(primaries)?
-        .try_inverse()
-        .expect("has an inverse"))
+    gamut_rgb_to_xyz_matrix(primaries).map(Matrix::invert)
 }
 
 fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {

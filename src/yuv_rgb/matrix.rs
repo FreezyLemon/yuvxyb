@@ -1,5 +1,7 @@
 // const matrix stuff
 
+use std::ops::Mul;
+
 use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
 #[derive(Clone, Copy)]
@@ -43,6 +45,14 @@ impl RowVector {
         Self(self.0 / x, self.1 / x, self.2 / x)
     }
 
+    pub const fn component_mul(self, other: Self) -> Self {
+        Self(
+            self.0 * other.0,
+            self.1 * other.1,
+            self.2 * other.2,
+        )
+    }
+
     pub fn as_nalgebra(self) -> Matrix1x3<f32> {
         Matrix1x3::new(self.0, self.1, self.2)
     }
@@ -60,6 +70,10 @@ impl ColVector {
         Self::new(arr[0], arr[1], arr[2])
     }
 
+    pub const fn transpose(self) -> RowVector {
+        RowVector::new(self.0, self.1, self.2)
+    }
+
     pub const fn as_nalgebra(self) -> Matrix3x1<f32> {
         Matrix3x1::new(self.0, self.1, self.2)
     }
@@ -71,6 +85,18 @@ pub struct Matrix(RowVector, RowVector, RowVector);
 impl Matrix {
     pub const fn new(r1: RowVector, r2: RowVector, r3: RowVector) -> Self {
         Self(r1, r2, r3)
+    }
+
+    pub const fn r1(self) -> RowVector { self.0 }
+    pub const fn r2(self) -> RowVector { self.1 }
+    pub const fn r3(self) -> RowVector { self.2 }
+
+    pub const fn identity() -> Self {
+        Self::new(
+            RowVector::new(1.0, 0.0, 0.0),
+            RowVector::new(0.0, 1.0, 0.0),
+            RowVector::new(0.0, 0.0, 1.0),
+        )
     }
 
     pub const fn scalar_div(self, x: f32) -> Self {
@@ -134,5 +160,19 @@ impl Matrix {
             self.1.as_nalgebra(),
             self.2.as_nalgebra(),
         ])
+    }
+}
+
+impl Mul<ColVector> for Matrix {
+    type Output = ColVector;
+
+    fn mul(self, rhs: ColVector) -> Self::Output {
+        let Matrix(r1, r2, r3) = self;
+        
+        ColVector::new(
+            r1.0 * rhs.0 + r1.1 * rhs.1 + r1.2 * rhs.2,
+            r2.0 * rhs.0 + r2.1 * rhs.1 + r2.2 * rhs.2,
+            r3.0 * rhs.0 + r3.1 * rhs.1 + r3.2 * rhs.2,
+        )
     }
 }
