@@ -1,5 +1,5 @@
 use av_data::pixel::{ColorPrimaries, MatrixCoefficients};
-use nalgebra::{Matrix3, Matrix3x1};
+use nalgebra::Matrix3x1;
 
 use super::matrix::{ColVector, Matrix, RowVector};
 
@@ -214,9 +214,11 @@ pub fn transform_primaries(
         return Ok(input);
     }
 
-    let transform = gamut_xyz_to_rgb_matrix(out_primaries)?.as_nalgebra()
+    let transform = gamut_xyz_to_rgb_matrix(out_primaries)?
         * white_point_adaptation_matrix(in_primaries, out_primaries)
-        * gamut_rgb_to_xyz_matrix(in_primaries)?.as_nalgebra();
+        * gamut_rgb_to_xyz_matrix(in_primaries)?;
+
+    let transform = transform.as_nalgebra();
 
     for pix in &mut input {
         let pix_matrix = Matrix3x1::from_column_slice(pix);
@@ -270,26 +272,28 @@ fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionErro
 fn white_point_adaptation_matrix(
     in_primaries: ColorPrimaries,
     out_primaries: ColorPrimaries,
-) -> Matrix3<f32> {
-    let bradford = Matrix3::from_row_slice(&[
-        0.8951f32, 0.2664f32, -0.1614f32, -0.7502f32, 1.7135f32, 0.0367f32, 0.0389f32, -0.0685f32,
-        1.0296f32,
-    ]);
+) -> Matrix {
+    let bradford = Matrix::new(
+        RowVector::new(0.8951f32, 0.2664f32, -0.1614f32),
+        RowVector::new(-0.7502f32, 1.7135f32, 0.0367f32),
+        RowVector::new(0.0389f32, -0.0685f32, 1.0296f32),
+    );
 
-    let white_in = Matrix3x1::from_column_slice(&get_white_point(in_primaries));
-    let white_out = Matrix3x1::from_column_slice(&get_white_point(out_primaries));
+    let white_in = ColVector::from_array(get_white_point(in_primaries));
+    let white_out = ColVector::from_array(get_white_point(out_primaries));
 
     if white_in == white_out {
-        return Matrix3::identity();
+        return Matrix::identity();
     }
 
     let rgb_in = bradford * white_in;
     let rgb_out = bradford * white_out;
 
-    let mut m: Matrix3<f32> = Matrix3::zeros();
-    m[0] = rgb_out[0] / rgb_in[0];
-    m[4] = rgb_out[1] / rgb_in[1];
-    m[8] = rgb_out[2] / rgb_in[2];
+    let m = Matrix::new(
+        RowVector::new(rgb_out.r() / rgb_in.r(), 0.0, 0.0),
+        RowVector::new(0.0, rgb_out.g() / rgb_in.g(), 0.0),
+        RowVector::new(0.0, 0.0, rgb_out.b() / rgb_in.b()),
+    );
 
-    bradford.try_inverse().expect("has an inverse") * m * bradford
+    bradford.invert() * m * bradford
 }

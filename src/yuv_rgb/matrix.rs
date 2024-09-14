@@ -46,11 +46,7 @@ impl RowVector {
     }
 
     pub const fn component_mul(self, other: Self) -> Self {
-        Self(
-            self.0 * other.0,
-            self.1 * other.1,
-            self.2 * other.2,
-        )
+        Self(self.0 * other.0, self.1 * other.1, self.2 * other.2)
     }
 
     pub fn as_nalgebra(self) -> Matrix1x3<f32> {
@@ -58,16 +54,26 @@ impl RowVector {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ColVector(f32, f32, f32);
 
 impl ColVector {
-    pub const fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(x, y, z)
+    pub const fn new(r: f32, g: f32, b: f32) -> Self {
+        Self(r, g, b)
     }
 
     pub const fn from_array(arr: [f32; 3]) -> Self {
         Self::new(arr[0], arr[1], arr[2])
+    }
+
+    pub const fn r(self) -> f32 {
+        self.0
+    }
+    pub const fn g(self) -> f32 {
+        self.1
+    }
+    pub const fn b(self) -> f32 {
+        self.2
     }
 
     pub const fn transpose(self) -> RowVector {
@@ -87,9 +93,15 @@ impl Matrix {
         Self(r1, r2, r3)
     }
 
-    pub const fn r1(self) -> RowVector { self.0 }
-    pub const fn r2(self) -> RowVector { self.1 }
-    pub const fn r3(self) -> RowVector { self.2 }
+    pub const fn r1(self) -> RowVector {
+        self.0
+    }
+    pub const fn r2(self) -> RowVector {
+        self.1
+    }
+    pub const fn r3(self) -> RowVector {
+        self.2
+    }
 
     pub const fn identity() -> Self {
         Self::new(
@@ -168,11 +180,38 @@ impl Mul<ColVector> for Matrix {
 
     fn mul(self, rhs: ColVector) -> Self::Output {
         let Matrix(r1, r2, r3) = self;
-        
+
         ColVector::new(
             r1.0 * rhs.0 + r1.1 * rhs.1 + r1.2 * rhs.2,
             r2.0 * rhs.0 + r2.1 * rhs.1 + r2.2 * rhs.2,
             r3.0 * rhs.0 + r3.1 * rhs.1 + r3.2 * rhs.2,
+        )
+    }
+}
+
+impl Mul<Matrix> for Matrix {
+    type Output = Matrix;
+
+    fn mul(self, rhs: Matrix) -> Self::Output {
+        let Matrix(r1, r2, r3) = self;
+        let Matrix(o1, o2, o3) = rhs;
+
+        Matrix::new(
+            RowVector::new(
+                r1.0 * o1.0 + r1.1 * o2.0 + r1.2 * o3.0,
+                r1.0 * o1.1 + r1.1 * o2.1 + r1.2 * o3.1,
+                r1.0 * o1.2 + r1.1 * o2.2 + r1.2 * o3.2,
+            ),
+            RowVector::new(
+                r2.0 * o1.0 + r2.1 * o2.0 + r2.2 * o3.0,
+                r2.0 * o1.1 + r2.1 * o2.1 + r2.2 * o3.1,
+                r2.0 * o1.2 + r2.1 * o2.2 + r2.2 * o3.2,
+            ),
+            RowVector::new(
+                r3.0 * o1.0 + r3.1 * o2.0 + r3.2 * o3.0,
+                r3.0 * o1.1 + r3.1 * o2.1 + r3.2 * o3.1,
+                r3.0 * o1.2 + r3.1 * o2.2 + r3.2 * o3.2,
+            ),
         )
     }
 }
