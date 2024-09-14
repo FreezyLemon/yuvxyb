@@ -9,6 +9,10 @@ impl RowVector {
         Self(x, y, z)
     }
 
+    pub const fn from_array(arr: [f32; 3]) -> Self {
+        Self::new(arr[0], arr[1], arr[2])
+    }
+
     pub const fn scalar_mul(&self, x: f32) -> Self {
         Self(self.0 * x, self.1 * x, self.2 * x)
     }

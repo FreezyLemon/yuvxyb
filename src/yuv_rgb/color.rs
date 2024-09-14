@@ -74,11 +74,11 @@ fn get_yuv_constants_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<(f32, f32), ConversionError> {
     // ITU-T H.265 Annex E, Eq (E-22) to (E-27).
-    let primaries_xy = get_primaries_xy(primaries)?;
+    let [primaries_r, primaries_g, primaries_b] = get_primaries_xy(primaries)?;
 
-    let r_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_xy[0][0], primaries_xy[0][1]));
-    let g_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_xy[1][0], primaries_xy[1][1]));
-    let b_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_xy[2][0], primaries_xy[2][1]));
+    let r_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_r));
+    let g_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_g));
+    let b_xyz = Matrix1x3::from_row_slice(&xy_to_xyz(primaries_b));
     let white_xyz = Matrix1x3::from_row_slice(&get_white_point(primaries));
 
     let x_rgb = Matrix1x3::from_row_slice(&[r_xyz[0], g_xyz[0], b_xyz[0]]);
@@ -156,16 +156,15 @@ const fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
     const ILLUMINANT_E: [f32; 2] = [1.0 / 3.0, 1.0 / 3.0];
 
     match primaries {
-        ColorPrimaries::BT470M | ColorPrimaries::Film => {
-            xy_to_xyz(ILLUMINANT_C[0], ILLUMINANT_C[1])
-        }
-        ColorPrimaries::ST428 => xy_to_xyz(ILLUMINANT_E[0], ILLUMINANT_E[1]),
-        ColorPrimaries::P3DCI => xy_to_xyz(ILLUMINANT_DCI[0], ILLUMINANT_DCI[1]),
-        _ => xy_to_xyz(ILLUMINANT_D65[0], ILLUMINANT_D65[1]),
+        ColorPrimaries::BT470M | ColorPrimaries::Film => xy_to_xyz(ILLUMINANT_C),
+        ColorPrimaries::ST428 => xy_to_xyz(ILLUMINANT_E),
+        ColorPrimaries::P3DCI => xy_to_xyz(ILLUMINANT_DCI),
+        _ => xy_to_xyz(ILLUMINANT_D65),
     }
 }
 
-const fn xy_to_xyz(x: f32, y: f32) -> [f32; 3] {
+const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
+    let [x, y] = xy;
     [x / y, 1.0, (1.0 - x - y) / y]
 }
 
@@ -263,16 +262,12 @@ fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, Co
 fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
     // Columns: R G B
     // Rows: X Y Z
-    let primaries_xy = get_primaries_xy(primaries)?;
-
-    let r1 = xy_to_xyz(primaries_xy[0][0], primaries_xy[0][1]);
-    let r2 = xy_to_xyz(primaries_xy[1][0], primaries_xy[1][1]);
-    let r3 = xy_to_xyz(primaries_xy[2][0], primaries_xy[2][1]);
+    let [primaries_r, primaries_g, primaries_b] = get_primaries_xy(primaries)?;
 
     let m = Matrix::new(
-        RowVector::new(r1[0], r1[1], r1[2]),
-        RowVector::new(r2[0], r2[1], r2[2]),
-        RowVector::new(r3[0], r3[1], r3[2]),
+        RowVector::from_array(xy_to_xyz(primaries_r)),
+        RowVector::from_array(xy_to_xyz(primaries_g)),
+        RowVector::from_array(xy_to_xyz(primaries_b)),
     );
 
     Ok(m.transpose())
