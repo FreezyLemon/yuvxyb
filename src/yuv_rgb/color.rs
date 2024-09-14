@@ -8,11 +8,12 @@ use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
 fn get_yuv_to_rgb_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
     Ok(get_rgb_to_yuv_matrix(config)?
+        .as_nalgebra()
         .try_inverse()
         .expect("Matrix can be inverted"))
 }
 
-fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionError> {
+fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix, ConversionError> {
     match config.matrix_coefficients {
         MatrixCoefficients::Identity
         | MatrixCoefficients::BT2020ConstantLuminance
@@ -36,38 +37,37 @@ fn get_rgb_to_yuv_matrix(config: YuvConfig) -> Result<Matrix3<f32>, ConversionEr
 
 fn ncl_rgb_to_yuv_matrix_from_primaries(
     primaries: ColorPrimaries,
-) -> Result<Matrix3<f32>, ConversionError> {
+) -> Result<Matrix, ConversionError> {
     match primaries {
-        ColorPrimaries::BT709 => ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT709),
+        ColorPrimaries::BT709 => {
+            ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT709)
+        }
         ColorPrimaries::BT2020 => {
             ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT2020NonConstantLuminance)
         }
         _ => {
             let (kr, kb) = get_yuv_constants_from_primaries(primaries)?;
-            Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb).as_nalgebra())
+            Ok(ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb))
         }
     }
 }
 
-fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix3<f32>, ConversionError> {
+fn ncl_rgb_to_yuv_matrix(matrix: MatrixCoefficients) -> Result<Matrix, ConversionError> {
     Ok(match matrix {
-        MatrixCoefficients::YCgCo => {
-            Matrix3::from_row_slice(&[0.25, 0.5, 0.25, -0.25, 0.5, -0.25, 0.5, 0.0, -0.5])
-        }
-        MatrixCoefficients::ST2085 => Matrix3::from_row_slice(&[
-            1688.0 / 4096.0,
-            2146.0 / 4096.0,
-            262.0 / 4096.0,
-            683.0 / 4096.0,
-            2951.0 / 4096.0,
-            462.0 / 4096.0,
-            99.0 / 4096.0,
-            309.0 / 4096.0,
-            3688.0 / 4096.0,
-        ]),
+        MatrixCoefficients::YCgCo => Matrix::new(
+            RowVector::new(0.25, 0.5, 0.25),
+            RowVector::new(-0.25, 0.5, -0.25),
+            RowVector::new(0.5, 0.0, -0.5),
+        ),
+        MatrixCoefficients::ST2085 => Matrix::new(
+            RowVector::new(1688.0, 2146.0, 262.0),
+            RowVector::new(683.0, 2951.0, 462.0),
+            RowVector::new(99.0, 309.0, 3688.0),
+        )
+        .scalar_div(4096.0),
         _ => {
             let (kr, kb) = get_yuv_constants(matrix)?;
-            ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb).as_nalgebra()
+            ncl_rgb_to_yuv_matrix_from_kr_kb(kr, kb)
         }
     })
 }
@@ -199,7 +199,7 @@ pub fn rgb_to_yuv<T: Pixel>(
     height: usize,
     config: YuvConfig,
 ) -> Result<Yuv<T>, ConversionError> {
-    let transform = get_rgb_to_yuv_matrix(config)?;
+    let transform = get_rgb_to_yuv_matrix(config)?.as_nalgebra();
     let yuv = input
         .iter()
         .map(|pix| {

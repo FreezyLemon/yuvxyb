@@ -9,8 +9,12 @@ impl RowVector {
         Self(x, y, z)
     }
 
-    pub const fn scalar_mul(self, x: f32) -> Self {
+    pub const fn scalar_mul(&self, x: f32) -> Self {
         Self(self.0 * x, self.1 * x, self.2 * x)
+    }
+
+    pub const fn scalar_div(&self, x: f32) -> Self {
+        Self(self.0 / x, self.1 / x, self.2 / x)
     }
 
     pub fn as_nalgebra(&self) -> Matrix1x3<f32> {
@@ -25,6 +29,14 @@ pub struct Matrix(RowVector, RowVector, RowVector);
 impl Matrix {
     pub const fn new(r1: RowVector, r2: RowVector, r3: RowVector) -> Self {
         Self(r1, r2, r3)
+    }
+
+    pub const fn scalar_div(&self, x: f32) -> Self {
+        Self(
+            self.0.scalar_div(x),
+            self.1.scalar_div(x),
+            self.2.scalar_div(x),
+        )
     }
 
     pub fn as_nalgebra(&self) -> Matrix3<f32> {
