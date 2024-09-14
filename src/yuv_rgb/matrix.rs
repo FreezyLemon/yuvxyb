@@ -39,6 +39,20 @@ impl Matrix {
         )
     }
 
+    pub const fn transpose(&self) -> Self {
+        let Matrix(r1, r2, r3) = self;
+
+        let RowVector(s11, s12, s13) = *r1;
+        let RowVector(s21, s22, s23) = *r2;
+        let RowVector(s31, s32, s33) = *r3;
+
+        Self::new(
+            RowVector::new(s11, s21, s31),
+            RowVector::new(s12, s22, s32),
+            RowVector::new(s13, s23, s33),
+        )
+    }
+
     pub fn as_nalgebra(&self) -> Matrix3<f32> {
         Matrix3::from_rows(&[
             self.0.as_nalgebra(),

@@ -39,9 +39,7 @@ fn ncl_rgb_to_yuv_matrix_from_primaries(
     primaries: ColorPrimaries,
 ) -> Result<Matrix, ConversionError> {
     match primaries {
-        ColorPrimaries::BT709 => {
-            ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT709)
-        }
+        ColorPrimaries::BT709 => ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT709),
         ColorPrimaries::BT2020 => {
             ncl_rgb_to_yuv_matrix(MatrixCoefficients::BT2020NonConstantLuminance)
         }
@@ -150,7 +148,7 @@ const fn get_primaries_xy(primaries: ColorPrimaries) -> Result<[[f32; 2]; 3], Co
     })
 }
 
-fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
+const fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
     // White points in XY.
     const ILLUMINANT_C: [f32; 2] = [0.31, 0.316];
     const ILLUMINANT_DCI: [f32; 2] = [0.314, 0.351];
@@ -167,7 +165,7 @@ fn get_white_point(primaries: ColorPrimaries) -> [f32; 3] {
     }
 }
 
-fn xy_to_xyz(x: f32, y: f32) -> [f32; 3] {
+const fn xy_to_xyz(x: f32, y: f32) -> [f32; 3] {
     [x / y, 1.0, (1.0 - x - y) / y]
 }
 
@@ -240,7 +238,7 @@ fn gamut_rgb_to_xyz_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, Co
         return Ok(Matrix3::identity());
     }
 
-    let xyz_matrix = get_primaries_xyz(primaries)?;
+    let xyz_matrix = get_primaries_xyz(primaries)?.as_nalgebra();
     let white_xyz = Matrix3x1::from_column_slice(&get_white_point(primaries));
 
     let s = (xyz_matrix.try_inverse().expect("has an inverse") * white_xyz).transpose();
@@ -262,17 +260,22 @@ fn gamut_xyz_to_rgb_matrix(primaries: ColorPrimaries) -> Result<Matrix3<f32>, Co
         .expect("has an inverse"))
 }
 
-fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix3<f32>, ConversionError> {
+fn get_primaries_xyz(primaries: ColorPrimaries) -> Result<Matrix, ConversionError> {
     // Columns: R G B
     // Rows: X Y Z
     let primaries_xy = get_primaries_xy(primaries)?;
 
-    let mut ret = [0f32; 9];
-    ret[0..3].copy_from_slice(&xy_to_xyz(primaries_xy[0][0], primaries_xy[0][1]));
-    ret[3..6].copy_from_slice(&xy_to_xyz(primaries_xy[1][0], primaries_xy[1][1]));
-    ret[6..9].copy_from_slice(&xy_to_xyz(primaries_xy[2][0], primaries_xy[2][1]));
+    let r1 = xy_to_xyz(primaries_xy[0][0], primaries_xy[0][1]);
+    let r2 = xy_to_xyz(primaries_xy[1][0], primaries_xy[1][1]);
+    let r3 = xy_to_xyz(primaries_xy[2][0], primaries_xy[2][1]);
 
-    Ok(Matrix3::from_row_slice(&ret).transpose())
+    let m = Matrix::new(
+        RowVector::new(r1[0], r1[1], r1[2]),
+        RowVector::new(r2[0], r2[1], r2[2]),
+        RowVector::new(r3[0], r3[1], r3[2]),
+    );
+
+    Ok(m.transpose())
 }
 
 fn white_point_adaptation_matrix(
