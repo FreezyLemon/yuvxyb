@@ -141,8 +141,6 @@ impl Matrix {
 
         let determinant = s11 * minor_11 - s12 * minor_12 + s13 * minor_13;
 
-        assert!(determinant != 0.0);
-
         Self::new(
             RowVector::new(minor_11, -minor_12, minor_13),
             RowVector::new(-minor_21, minor_22, -minor_23),
