@@ -129,6 +129,27 @@ static RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIEN
     result
 };
 
+static YUV_TO_RGB_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES] = {
+    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES];
+    
+    let mut c_idx = 0;
+    while c_idx < NUM_COLOR_PRIMARIES {
+        let mut m_idx = 0;
+        while m_idx < NUM_MATRIX_COEFFICIENTS {
+            result[c_idx][m_idx] = match RGB_TO_YUV_MATS[c_idx][m_idx] {
+                Ok(m) => Ok(m.invert()),
+                Err(e) => Err(e),
+            };
+
+            m_idx += 1;
+        }
+
+        c_idx += 1;
+    }
+
+    result
+};
+
 static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIMARIES];
     NUM_COLOR_PRIMARIES] = {
     let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_COLOR_PRIMARIES];
@@ -340,7 +361,7 @@ const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
 pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionError> {
     let m = m_to_idx(input.config().matrix_coefficients);
     let c = c_to_idx(input.config().color_primaries);
-    let transform = RGB_TO_YUV_MATS[c][m]?.invert();
+    let transform = YUV_TO_RGB_MATS[c][m]?;
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {
