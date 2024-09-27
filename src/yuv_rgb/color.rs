@@ -146,10 +146,6 @@ static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIM
                 panic!("couldn't convert index to ColorPrimaries");
             };
 
-            // gamut_xyz_to_rgb_matrix(out_primaries)?
-            // .mul_mat(white_point_adaptation_matrix(in_primaries, out_primaries))
-            // .mul_mat(gamut_rgb_to_xyz_matrix(in_primaries)?);
-
             let x_to_r = match gamut_xyz_to_rgb_matrix(out_c) {
                 Ok(m) => m,
                 Err(e) => {
