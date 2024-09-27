@@ -102,7 +102,7 @@ const NUM_COLOR_PRIMARIES: usize = {
     idx
 };
 
-const RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES] = {
+static RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES] = {
     let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES];
 
     let mut c_idx = 0;
@@ -122,6 +122,55 @@ const RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENT
         }
 
         c_idx += 1;
+    }
+
+    result
+};
+
+static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIMARIES]; NUM_COLOR_PRIMARIES] = {
+    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_COLOR_PRIMARIES]; NUM_COLOR_PRIMARIES];
+
+    let mut in_c_idx = 0;
+    while in_c_idx < NUM_COLOR_PRIMARIES {
+        let Some(in_c) = idx_to_c(in_c_idx) else {
+            panic!("couldn't convert index to ColorPrimaries");
+        };
+
+        let mut out_c_idx = 0;
+        while out_c_idx < NUM_COLOR_PRIMARIES {
+            let Some(out_c) = idx_to_c(out_c_idx) else {
+                panic!("couldn't convert index to ColorPrimaries");
+            };
+
+            // gamut_xyz_to_rgb_matrix(out_primaries)?
+            // .mul_mat(white_point_adaptation_matrix(in_primaries, out_primaries))
+            // .mul_mat(gamut_rgb_to_xyz_matrix(in_primaries)?);
+
+            let x_to_r = match gamut_xyz_to_rgb_matrix(out_c) {
+                Ok(m) => m,
+                Err(e) => {
+                    result[in_c_idx][out_c_idx] = Err(e);
+                    out_c_idx += 1;
+                    continue;
+                },
+            };
+
+            let r_to_x = match gamut_rgb_to_xyz_matrix(in_c) {
+                Ok(m) => m,
+                Err(e) => {
+                    result[in_c_idx][out_c_idx] = Err(e);
+                    out_c_idx += 1;
+                    continue;
+                },
+            };
+
+            let white_point = white_point_adaptation_matrix(in_c, out_c);
+
+            result[in_c_idx][out_c_idx] = Ok(x_to_r.mul_mat(white_point).mul_mat(r_to_x));
+            out_c_idx += 1;
+        }
+
+        in_c_idx += 1;
     }
 
     result
@@ -328,9 +377,9 @@ pub fn transform_primaries(
         return Ok(input);
     }
 
-    let transform = gamut_xyz_to_rgb_matrix(out_primaries)?
-        .mul_mat(white_point_adaptation_matrix(in_primaries, out_primaries))
-        .mul_mat(gamut_rgb_to_xyz_matrix(in_primaries)?);
+    let in_c = c_to_idx(in_primaries);
+    let out_c = c_to_idx(out_primaries);
+    let transform = PRIMARY_TRANSFORM_MATS[in_c][out_c]?;
 
     for pix in &mut input {
         *pix = transform.mul_arr(*pix);
