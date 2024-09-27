@@ -5,15 +5,127 @@ use super::matrix::{ColVector, Matrix, RowVector};
 use super::{ycbcr_to_ypbpr, ypbpr_to_ycbcr};
 use crate::{ConversionError, Pixel, Yuv, YuvConfig};
 
-const fn get_yuv_to_rgb_matrix(
-    matrix: MatrixCoefficients,
-    primaries: ColorPrimaries,
-) -> Result<Matrix, ConversionError> {
-    match get_rgb_to_yuv_matrix(matrix, primaries) {
-        Ok(m) => Ok(m.invert()),
-        Err(e) => Err(e),
+const fn m_to_idx(m: MatrixCoefficients) -> usize {
+    match m {
+        MatrixCoefficients::Identity => 0,
+        MatrixCoefficients::BT709 => 1,
+        MatrixCoefficients::Unspecified => 2,
+        MatrixCoefficients::Reserved => 3,
+        MatrixCoefficients::BT470M => 4,
+        MatrixCoefficients::BT470BG => 5,
+        MatrixCoefficients::ST170M => 6,
+        MatrixCoefficients::ST240M => 7,
+        MatrixCoefficients::YCgCo => 8,
+        MatrixCoefficients::BT2020NonConstantLuminance => 9,
+        MatrixCoefficients::BT2020ConstantLuminance => 10,
+        MatrixCoefficients::ST2085 => 11,
+        MatrixCoefficients::ChromaticityDerivedNonConstantLuminance => 12,
+        MatrixCoefficients::ChromaticityDerivedConstantLuminance => 13,
+        MatrixCoefficients::ICtCp => 14,
     }
 }
+
+const fn idx_to_m(idx: usize) -> Option<MatrixCoefficients> {
+    match idx {
+        0 => Some(MatrixCoefficients::Identity),
+        1 => Some(MatrixCoefficients::BT709),
+        2 => Some(MatrixCoefficients::Unspecified),
+        3 => Some(MatrixCoefficients::Reserved),
+        4 => Some(MatrixCoefficients::BT470M),
+        5 => Some(MatrixCoefficients::BT470BG),
+        6 => Some(MatrixCoefficients::ST170M),
+        7 => Some(MatrixCoefficients::ST240M),
+        8 => Some(MatrixCoefficients::YCgCo),
+        9 => Some(MatrixCoefficients::BT2020NonConstantLuminance),
+        10 => Some(MatrixCoefficients::BT2020ConstantLuminance),
+        11 => Some(MatrixCoefficients::ST2085),
+        12 => Some(MatrixCoefficients::ChromaticityDerivedNonConstantLuminance),
+        13 => Some(MatrixCoefficients::ChromaticityDerivedConstantLuminance),
+        14 => Some(MatrixCoefficients::ICtCp),
+        _ => None,
+    }
+}
+
+const fn c_to_idx(c: ColorPrimaries) -> usize {
+    match c {
+        ColorPrimaries::Reserved0 => 0,
+        ColorPrimaries::BT709 => 1,
+        ColorPrimaries::Unspecified => 2,
+        ColorPrimaries::Reserved => 3,
+        ColorPrimaries::BT470M => 4,
+        ColorPrimaries::BT470BG => 5,
+        ColorPrimaries::ST170M => 6,
+        ColorPrimaries::ST240M => 7,
+        ColorPrimaries::Film => 8,
+        ColorPrimaries::BT2020 => 9,
+        ColorPrimaries::ST428 => 10,
+        ColorPrimaries::P3DCI => 11,
+        ColorPrimaries::P3Display => 12,
+        ColorPrimaries::Tech3213 => 13,
+    }
+}
+
+const fn idx_to_c(idx: usize) -> Option<ColorPrimaries> {
+    match idx {
+        0 => Some(ColorPrimaries::Reserved0),
+        1 => Some(ColorPrimaries::BT709),
+        2 => Some(ColorPrimaries::Unspecified),
+        3 => Some(ColorPrimaries::Reserved),
+        4 => Some(ColorPrimaries::BT470M),
+        5 => Some(ColorPrimaries::BT470BG),
+        6 => Some(ColorPrimaries::ST170M),
+        7 => Some(ColorPrimaries::ST240M),
+        8 => Some(ColorPrimaries::Film),
+        9 => Some(ColorPrimaries::BT2020),
+        10 => Some(ColorPrimaries::ST428),
+        11 => Some(ColorPrimaries::P3DCI),
+        12 => Some(ColorPrimaries::P3Display),
+        13 => Some(ColorPrimaries::Tech3213),
+        _ => None,
+    }
+}
+
+const NUM_MATRIX_COEFFICIENTS: usize = {
+    let mut idx = 0;
+    while let Some(_) = idx_to_m(idx) {
+        idx += 1;
+    }
+
+    idx
+};
+const NUM_COLOR_PRIMARIES: usize = {
+    let mut idx = 0;
+    while let Some(_) = idx_to_c(idx) {
+        idx += 1;
+    }
+
+    idx
+};
+
+const RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES] = {
+    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES];
+
+    let mut c_idx = 0;
+    while c_idx < NUM_COLOR_PRIMARIES {
+        let Some(c) = idx_to_c(c_idx) else {
+            panic!("couldn't convert index to ColorPrimaries");
+        };
+
+        let mut m_idx = 0;
+        while m_idx < NUM_MATRIX_COEFFICIENTS {
+            let Some(m) = idx_to_m(m_idx) else {
+                panic!("couldn't convert index to MatrixCoefficients");
+            };
+            result[c_idx][m_idx] = get_rgb_to_yuv_matrix(m, c);
+
+            m_idx += 1;
+        }
+
+        c_idx += 1;
+    }
+
+    result
+};
 
 const fn get_rgb_to_yuv_matrix(
     matrix: MatrixCoefficients,
@@ -177,10 +289,9 @@ const fn xy_to_xyz(xy: [f32; 2]) -> [f32; 3] {
 /// Converts 8..=16-bit YUV data to 32-bit floating point gamma-corrected RGB
 /// in a range of 0.0..=1.0;
 pub fn yuv_to_rgb<T: Pixel>(input: &Yuv<T>) -> Result<Vec<[f32; 3]>, ConversionError> {
-    let transform = get_yuv_to_rgb_matrix(
-        input.config().matrix_coefficients,
-        input.config().color_primaries,
-    )?;
+    let m = m_to_idx(input.config().matrix_coefficients);
+    let c = c_to_idx(input.config().color_primaries);
+    let transform = RGB_TO_YUV_MATS[c][m]?.invert();
     let mut data = ycbcr_to_ypbpr(input);
 
     for pix in &mut data {
@@ -201,7 +312,9 @@ pub fn rgb_to_yuv<T: Pixel>(
     height: usize,
     config: YuvConfig,
 ) -> Result<Yuv<T>, ConversionError> {
-    let transform = get_rgb_to_yuv_matrix(config.matrix_coefficients, config.color_primaries)?;
+    let m = m_to_idx(config.matrix_coefficients);
+    let c = c_to_idx(config.color_primaries);
+    let transform = RGB_TO_YUV_MATS[c][m]?;
     let yuv: Vec<_> = input.iter().map(|pix| transform.mul_arr(*pix)).collect();
     Ok(ypbpr_to_ycbcr(&yuv, width, height, config))
 }
@@ -300,4 +413,23 @@ const fn white_point_adaptation_matrix(
     );
 
     bradford.invert().mul_mat(m).mul_mat(bradford)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn size_of() {
+        use std::mem::size_of;
+
+        let s = size_of::<Result<Matrix, ConversionError>>();
+        println!("Result<Matrix, ConversionError>: {s}");
+
+        let s = size_of::<Matrix>();
+        println!("Matrix: {s}");
+
+        let s = size_of::<ConversionError>();
+        println!("ConversionError: {s}");
+    }
 }
