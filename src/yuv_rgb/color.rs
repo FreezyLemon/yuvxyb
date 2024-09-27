@@ -102,8 +102,10 @@ const NUM_COLOR_PRIMARIES: usize = {
     idx
 };
 
-static RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES] = {
-    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_MATRIX_COEFFICIENTS]; NUM_COLOR_PRIMARIES];
+static RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIENTS];
+    NUM_COLOR_PRIMARIES] = {
+    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_MATRIX_COEFFICIENTS];
+        NUM_COLOR_PRIMARIES];
 
     let mut c_idx = 0;
     while c_idx < NUM_COLOR_PRIMARIES {
@@ -127,8 +129,10 @@ static RGB_TO_YUV_MATS: [[Result<Matrix, ConversionError>; NUM_MATRIX_COEFFICIEN
     result
 };
 
-static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIMARIES]; NUM_COLOR_PRIMARIES] = {
-    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_COLOR_PRIMARIES]; NUM_COLOR_PRIMARIES];
+static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIMARIES];
+    NUM_COLOR_PRIMARIES] = {
+    let mut result = [[Err(ConversionError::UnsupportedColorPrimaries); NUM_COLOR_PRIMARIES];
+        NUM_COLOR_PRIMARIES];
 
     let mut in_c_idx = 0;
     while in_c_idx < NUM_COLOR_PRIMARIES {
@@ -152,7 +156,7 @@ static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIM
                     result[in_c_idx][out_c_idx] = Err(e);
                     out_c_idx += 1;
                     continue;
-                },
+                }
             };
 
             let r_to_x = match gamut_rgb_to_xyz_matrix(in_c) {
@@ -161,7 +165,7 @@ static PRIMARY_TRANSFORM_MATS: [[Result<Matrix, ConversionError>; NUM_COLOR_PRIM
                     result[in_c_idx][out_c_idx] = Err(e);
                     out_c_idx += 1;
                     continue;
-                },
+                }
             };
 
             let white_point = white_point_adaptation_matrix(in_c, out_c);
