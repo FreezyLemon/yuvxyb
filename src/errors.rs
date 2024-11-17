@@ -1,24 +1,45 @@
-use thiserror::Error;
+use std::fmt::Display;
 
 /// Error type for when converting data from one color space to another fails.
 ///
 /// Note that some conversions are infallible. These conversions will be
 /// implemented in the [`From<T>`] trait. Check the type's documentation
 /// to see which conversions are implemented.
-#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConversionError {
-    #[error("Cannot convert between YUV and RGB using these matrix coefficients.")]
     UnsupportedMatrixCoefficients,
-    #[error("No matrix coefficients were specified.")]
     UnspecifiedMatrixCoefficients,
-    #[error("Cannot convert between YUV and RGB using these primaries.")]
     UnsupportedColorPrimaries,
-    #[error("No primaries were specified.")]
     UnspecifiedColorPrimaries,
-    #[error("Cannot convert between YUV and RGB using this transfer function.")]
     UnsupportedTransferCharacteristic,
-    #[error("No transfer function was specified.")]
     UnspecifiedTransferCharacteristic,
+}
+
+impl std::error::Error for ConversionError {}
+
+impl Display for ConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use ConversionError as Err;
+
+        write!(
+            f,
+            "{}",
+            match self {
+                Err::UnsupportedMatrixCoefficients => {
+                    "Cannot convert between YUV and RGB using these matrix coefficients."
+                }
+                Err::UnspecifiedMatrixCoefficients => "No matrix coefficients were specified.",
+                Err::UnsupportedColorPrimaries => {
+                    "Cannot convert between YUV and RGB using these primaries."
+                }
+                Err::UnspecifiedColorPrimaries => "No primaries were specified.",
+                Err::UnsupportedTransferCharacteristic => {
+                    "Cannot convert between YUV and RGB using this transfer function."
+                }
+                Err::UnspecifiedTransferCharacteristic => "No transfer function was specified.",
+            }
+        )
+    }
 }
 
 /// Error type for when creating one of the colorspace structs fails.
@@ -39,11 +60,22 @@ pub enum ConversionError {
 ///
 /// [`Yuv`]: crate::yuv::Yuv
 /// [`YuvError`]: crate::yuv::YuvError
-#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CreationError {
     /// There is a mismatch between the supplied data and the supplied resolution.
     ///
     /// Generally, data.len() should be equal to width * height.
-    #[error("Data length does not match the specified dimensions.")]
     ResolutionMismatch,
+}
+
+impl std::error::Error for CreationError {}
+
+impl Display for CreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CreationError::ResolutionMismatch => {
+                write!(f, "Data length does not match the specified dimensions.")
+            }
+        }
+    }
 }
