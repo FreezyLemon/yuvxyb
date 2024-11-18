@@ -893,7 +893,6 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "rand",
- "thiserror",
  "v_frame",
 ]
 
