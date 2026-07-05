@@ -1,6 +1,6 @@
 use std::hint::black_box;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rand::RngExt;
 use yuvxyb::*;
 
@@ -108,82 +108,60 @@ fn make_rgb(width: usize, height: usize) -> Rgb {
     .expect("can build Rgb")
 }
 
-fn bench_yuv_8b_444_full_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 8-bit 4:4:4 full to xyb", |b| {
+fn bench_yuv_8b_to_xyb(c: &mut Criterion) {
+    let yuvs = &[
+        ("4:4:4 full", (0, 0), true),
+        ("4:2:0 full", (1, 1), true),
+        ("4:2:0 limited", (1, 1), false),
+    ];
+
+    let mut group = c.benchmark_group("yuv 8-bit to xyb");
+
+    for (label, ss, full_range) in *yuvs {
         let input = make_yuv_8b(
-            (0, 0),
-            true,
+            ss,
+            full_range,
             MatrixCoefficients::BT709,
             TransferCharacteristic::BT1886,
             ColorPrimaries::BT709,
         );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
+
+        // 1 element = 1 visible pixel (luma + chroma)
+        group.throughput(Throughput::Elements(
+            (input.width() * input.height()) as u64,
+        ));
+        group.bench_with_input(label, &input, |b, input| {
+            b.iter(|| Xyb::try_from(black_box(input)).unwrap());
+        });
+    }
 }
 
-fn bench_yuv_8b_420_full_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 8-bit 4:2:0 full to xyb", |b| {
-        let input = make_yuv_8b(
-            (1, 1),
-            true,
-            MatrixCoefficients::BT709,
-            TransferCharacteristic::BT1886,
-            ColorPrimaries::BT709,
-        );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
-}
+fn bench_yuv_10b_to_xyb(c: &mut Criterion) {
+    let yuvs = &[
+        ("4:4:4 full", (0, 0), true),
+        ("4:2:0 full", (1, 1), true),
+        ("4:2:0 limited", (1, 1), false),
+    ];
 
-fn bench_yuv_8b_420_limited_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 8-bit 4:2:0 limited to xyb", |b| {
-        let input = make_yuv_8b(
-            (1, 1),
-            false,
-            MatrixCoefficients::BT709,
-            TransferCharacteristic::BT1886,
-            ColorPrimaries::BT709,
-        );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
-}
+    let mut group = c.benchmark_group("yuv 10-bit to xyb");
 
-fn bench_yuv_10b_444_full_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 10-bit 4:4:4 full to xyb", |b| {
+    for (label, ss, full_range) in *yuvs {
         let input = make_yuv_10b(
-            (0, 0),
-            true,
+            ss,
+            full_range,
             MatrixCoefficients::BT2020NonConstantLuminance,
             TransferCharacteristic::PerceptualQuantizer,
             ColorPrimaries::BT2020,
         );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
-}
 
-fn bench_yuv_10b_420_full_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 10-bit 4:2:0 full to xyb", |b| {
-        let input = make_yuv_10b(
-            (1, 1),
-            true,
-            MatrixCoefficients::BT2020NonConstantLuminance,
-            TransferCharacteristic::PerceptualQuantizer,
-            ColorPrimaries::BT2020,
-        );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
-}
-
-fn bench_yuv_10b_420_limited_to_xyb(c: &mut Criterion) {
-    c.bench_function("yuv 10-bit 4:2:0 limited to xyb", |b| {
-        let input = make_yuv_10b(
-            (1, 1),
-            false,
-            MatrixCoefficients::BT2020NonConstantLuminance,
-            TransferCharacteristic::PerceptualQuantizer,
-            ColorPrimaries::BT2020,
-        );
-        b.iter(|| Xyb::try_from(black_box(&input)).unwrap())
-    });
+        // 1 element = 1 visible pixel (luma + chroma)
+        group.throughput(Throughput::Elements(
+            (input.width() * input.height()) as u64,
+        ));
+        group.bench_with_input(label, &input, |b, input| {
+            b.iter(|| Xyb::try_from(black_box(input)).unwrap());
+        });
+    }
 }
 
 fn bench_hybrid_log_gamma(c: &mut Criterion) {
@@ -326,12 +304,8 @@ fn bench_xyb_to_linear_rgb_simd_x16(c: &mut Criterion) {
 #[cfg(not(feature = "simd"))]
 criterion_group!(
     benches,
-    bench_yuv_8b_444_full_to_xyb,
-    bench_yuv_8b_420_full_to_xyb,
-    bench_yuv_8b_420_limited_to_xyb,
-    bench_yuv_10b_444_full_to_xyb,
-    bench_yuv_10b_420_full_to_xyb,
-    bench_yuv_10b_420_limited_to_xyb,
+    bench_yuv_8b_to_xyb,
+    bench_yuv_10b_to_xyb,
     bench_hybrid_log_gamma,
     bench_rgb_to_yuv,
     bench_yuv_8b_420_limited_to_rgb,
@@ -343,12 +317,8 @@ criterion_group!(
 #[cfg(feature = "simd")]
 criterion_group!(
     benches,
-    bench_yuv_8b_444_full_to_xyb,
-    bench_yuv_8b_420_full_to_xyb,
-    bench_yuv_8b_420_limited_to_xyb,
-    bench_yuv_10b_444_full_to_xyb,
-    bench_yuv_10b_420_full_to_xyb,
-    bench_yuv_10b_420_limited_to_xyb,
+    bench_yuv_8b_to_xyb,
+    bench_yuv_10b_to_xyb,
     bench_hybrid_log_gamma,
     bench_rgb_to_yuv,
     bench_yuv_8b_420_limited_to_rgb,
